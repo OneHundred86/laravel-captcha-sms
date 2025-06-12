@@ -76,12 +76,15 @@ class TencentCloudSMSService implements SMSServiceInterface
             if ($status->getCode() != 'Ok') {
                 $failedList[] = $status->getPhoneNumber();
 
-                \Log::debug(__METHOD__, [
-                    'phone' => $status->getPhoneNumber(),
-                    'template_id' => $req->TemplateID,
-                    'code' => $status->getCode(),
-                    'message' => $status->getMessage(),
-                ]);
+                // 记录错误日志
+                if (class_exists(\Log::class)) {
+                    \Log::error(__METHOD__, [
+                        'phone' => $status->getPhoneNumber(),
+                        'template_id' => $req->TemplateID,
+                        'code' => $status->getCode(),
+                        'message' => $status->getMessage(),
+                    ]);
+                }
             }
         }
 

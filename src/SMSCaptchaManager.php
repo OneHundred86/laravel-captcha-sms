@@ -24,5 +24,5 @@ class SMSCaptchaManager extends Manager
         return new SMSCaptcha($this->container, new TencentCloudSMSService($config));
     }
 
-    // TODO
+    // TODO: extend more drivers
 }

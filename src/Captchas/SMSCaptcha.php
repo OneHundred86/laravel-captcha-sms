@@ -60,51 +60,50 @@ class SMSCaptcha implements CaptchaInterface
 
         $key = Str::random(32);
 
-        Cache::put(
-            'captcha:sms:' . $key,
-            [
-                'phone' => $options['phone'],
-                'countryCode' => $options['countryCode'] ?? null,
-                'otp' => $otp,
-            ],
-            $this->config['expire']
-        );
+        Cache::put($this->genOTPKey($key), $otp, $this->config['expire']);
 
         return $key;
     }
 
+    private function genOTPKey(string $key): string
+    {
+        return 'captcha:sms:' . $key;
+    }
+
+    private function genErrCntKey(string $key): string
+    {
+        return 'captcha:sms:errCnt:' . $key;
+    }
+
     /**
-     * @param array{phone:string, countryCode:string, key:string, otp:string} $captcha
+     * @param array{key:string, value:string} $captcha
      * @return bool
      */
     public function verify($captcha): bool
     {
+        $otpKey = $this->genOTPKey($captcha['key']);
         /**
-         * @var array{
-         *          phone: string,
-         *          countryCode: string|null,
-         *          otp: string,
-         *      } | null
+         * @var string | null
          */
-        $data = Cache::get('captcha:sms:' . $captcha['key']);
-        if (!$data) {
+        $otp = Cache::get($otpKey);
+        if (!$otp) {
             return false;
         }
 
-        $errCnt = (int) Cache::get('captcha:sms:errCnt:' . $captcha['key'], 0);
+        $errCntKey = $this->genErrCntKey($captcha['key']);
+        $errCnt = (int) Cache::get($errCntKey, 0);
         if ($errCnt >= $this->config['max_attempts']) {
-            Cache::forget('captcha:sms:' . $captcha['key']);
+            Cache::forget($otpKey);
             return false;
         }
 
-        if ($data['phone'] != $captcha['phone'] || $data['countryCode'] != ($captcha['countryCode'] ?? null) || $data['otp'] != $captcha['otp']) {
-            Cache::put('captcha:sms:errCnt:' . $captcha['key'], $errCnt + 1, $this->config['expire']);
-
+        if ($otp != $captcha['value']) {
+            Cache::put($errCntKey, $errCnt + 1, $this->config['expire']);
             return false;
         }
 
         if (!$this->config['reuseable']) {
-            Cache::forget('captcha:sms:' . $captcha['key']);
+            Cache::forget($otpKey);
         }
 
         return true;
