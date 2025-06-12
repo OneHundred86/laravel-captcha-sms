@@ -19,7 +19,7 @@ class SMSCaptcha implements CaptchaInterface
      *          characters: string[],
      *          length: int,
      *          expire: int,
-     *          max_attempts: int,
+     *          maxAttempts: int,
      *          reuseable: bool,
      *      }
      */
@@ -27,13 +27,7 @@ class SMSCaptcha implements CaptchaInterface
 
     public function __construct(Application $app, SMSServiceInterface $smsService)
     {
-        $this->config = Arr::only($app->get('config')->get('captcha.sms'), [
-            'characters',
-            'length',
-            'expire',
-            'max_attempts',
-            'reuseable',
-        ]);
+        $this->config = $app->get('config')->get('captcha.sms.captcha');
 
         $this->smsService = $smsService;
     }
@@ -92,7 +86,7 @@ class SMSCaptcha implements CaptchaInterface
 
         $errCntKey = $this->genErrCntKey($captcha['key']);
         $errCnt = (int) Cache::get($errCntKey, 0);
-        if ($errCnt >= $this->config['max_attempts']) {
+        if ($errCnt >= $this->config['maxAttempts']) {
             Cache::forget($otpKey);
             return false;
         }
