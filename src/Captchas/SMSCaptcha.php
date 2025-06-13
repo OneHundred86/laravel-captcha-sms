@@ -2,18 +2,18 @@
 
 namespace Oh86\Captcha\SMS\Captchas;
 
-use Illuminate\Contracts\Container\Container as Application;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Oh86\Captcha\CaptchaInterface;
-use Oh86\Captcha\SMS\Exceptions\AcquireCaptchaException;
-use Oh86\Captcha\SMS\SMSServiceInterface;
+use Oh86\Captcha\Exceptions\AcquireCaptchaException;
+use Oh86\Captcha\SMS\Exceptions\SendOTPException;
+use Oh86\Captcha\SMS\OTPSenders\SmsOtpSenderInterface;
 
 
 class SMSCaptcha implements CaptchaInterface
 {
-    private SMSServiceInterface $smsService;
+    private SmsOtpSenderInterface $otpSender;
     /**
      * @var array{
      *          characters: string[],
@@ -25,11 +25,14 @@ class SMSCaptcha implements CaptchaInterface
      */
     private $config;
 
-    public function __construct(Application $app, SMSServiceInterface $smsService)
+    /**
+     * @param array $config
+     * @param \Oh86\Captcha\SMS\OTPSenders\SmsOtpSenderInterface $otpSender
+     */
+    public function __construct($config, SmsOtpSenderInterface $otpSender)
     {
-        $this->config = $app->get('config')->get('captcha.sms.captcha');
-
-        $this->smsService = $smsService;
+        $this->config = $config;
+        $this->otpSender = $otpSender;
     }
 
     public function randomOTP()
@@ -48,8 +51,11 @@ class SMSCaptcha implements CaptchaInterface
     public function acquire($options = null)
     {
         $otp = $this->randomOTP();
-        if (!$this->smsService->sendOTP($options, $otp)) {
-            throw new AcquireCaptchaException('获取验证码失败');
+
+        try {
+            $this->otpSender->sendOTP($options, $otp);
+        } catch (SendOTPException $e) {
+            throw new AcquireCaptchaException($e->getMessage());
         }
 
         $key = Str::random(32);

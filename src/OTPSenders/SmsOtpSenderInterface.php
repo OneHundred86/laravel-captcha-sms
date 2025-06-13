@@ -1,18 +1,18 @@
 <?php
 
-namespace Oh86\Captcha\SMS;
+namespace Oh86\Captcha\SMS\OTPSenders;
 
 /**
- * 短信发送验证码服务接口
+ * 短信验证码发送服务接口
  */
-interface SMSServiceInterface
+interface SmsOtpSenderInterface
 {
     /**
      * 发送短信验证码
      * 
      * @param array{phone:string, countryCode:string|null} $phoneInfo
      * @param string $otp
-     * @return bool
+     * @throws \Oh86\Captcha\SMS\Exceptions\SendOTPException
      */
     public function sendOTP($phoneInfo, $otp);
 }
