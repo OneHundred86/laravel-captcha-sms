@@ -40,6 +40,11 @@ use Oh86\Captcha\Facades\Captcha;
 // demo1
 $key = Captcha::driver('sms')->acquire(['phone' => '13800138000']);
 /** @var bool */
-$result = Captcha::driver('sms')->verify(['key' => $key, 'value' => '066611']);
+$result = Captcha::driver('sms')->verify(['key' => $key, 'value' => '066611', 'phone' => '13800138000']);
+
+// demo2
+$key = Captcha::driver('sms')->acquire(['phone' => '13800138000', 'countryCode' => '86']);
+/** @var bool */
+$result = Captcha::driver('sms')->verify(['key' => $key, 'value' => '066611', 'phone' => '13800138000', 'countryCode' => '86']);
 
 ```

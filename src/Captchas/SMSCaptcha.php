@@ -9,6 +9,7 @@ use Oh86\Captcha\CaptchaInterface;
 use Oh86\Captcha\Exceptions\AcquireCaptchaException;
 use Oh86\Captcha\SMS\Exceptions\SendOTPException;
 use Oh86\Captcha\SMS\OTPSenders\SmsOtpSenderInterface;
+use RuntimeException;
 
 
 class SMSCaptcha implements CaptchaInterface
@@ -44,12 +45,21 @@ class SMSCaptcha implements CaptchaInterface
         return $otp;
     }
 
+    private function assertArrayKeyExists(array $array, string $key)
+    {
+        if (!array_key_exists($key, $array)) {
+            throw new RuntimeException(sprintf('The key "%s" does not exist.', $key));
+        }
+    }
+
     /**
      * @param array{phone:string, countryCode:string|null} $options
      * @return string
      */
     public function acquire($options = null)
     {
+        $this->assertArrayKeyExists($options, 'phone');
+
         $otp = $this->randomOTP();
 
         try {
@@ -60,7 +70,11 @@ class SMSCaptcha implements CaptchaInterface
 
         $key = Str::random(32);
 
-        Cache::put($this->genOTPKey($key), $otp, $this->config['expire']);
+        Cache::put($this->genOTPKey($key), [
+            'otp' => $otp,
+            'phone' => $options['phone'],
+            'countryCode' => $options['countryCode'] ?? null
+        ], $this->config['expire']);
 
         return $key;
     }
@@ -76,29 +90,30 @@ class SMSCaptcha implements CaptchaInterface
     }
 
     /**
-     * @param array{key:string, value:string} $captcha
+     * @param array{key:string, value:string, phone:string, countryCode:string|null} $captcha
      * @return bool
      */
     public function verify($captcha): bool
     {
+        $this->assertArrayKeyExists($captcha, 'key');
+        $this->assertArrayKeyExists($captcha, 'value');
+        $this->assertArrayKeyExists($captcha, 'phone');
+
         $otpKey = $this->genOTPKey($captcha['key']);
-        /**
-         * @var string | null
-         */
-        $otp = Cache::get($otpKey);
-        if (!$otp) {
+        /** @var array{otp:string, phone:string, countryCode:string|null} | null */
+        $data = Cache::get($otpKey);
+        if (!$data) {
             return false;
         }
 
-        $errCntKey = $this->genErrCntKey($captcha['key']);
-        $errCnt = (int) Cache::get($errCntKey, 0);
-        if ($errCnt >= $this->config['maxAttempts']) {
-            Cache::forget($otpKey);
-            return false;
-        }
-
-        if ($otp != $captcha['value']) {
-            Cache::put($errCntKey, $errCnt + 1, $this->config['expire']);
+        if ($data['otp'] != $captcha['value'] || $data['phone'] != $captcha['phone'] || $data['countryCode'] != ($captcha['countryCode'] ?? null)) {
+            $errCntKey = $this->genErrCntKey($captcha['key']);
+            $errCnt = (int) Cache::get($errCntKey, 0) + 1;
+            if ($errCnt >= $this->config['maxAttempts']) {
+                Cache::forget($otpKey);
+            } else {
+                Cache::put($errCntKey, $errCnt, $this->config['expire']);
+            }
             return false;
         }
 
